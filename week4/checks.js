@@ -62,7 +62,9 @@ var result = lib.query(
     friends,
     lib.select('name', 'gender', 'email'),
     lib.select('name', 'gender'),
-    lib.filterIn('favoriteFruit', ['Яблоко', 'Картофель'])
+    lib.filterIn('favoriteFruit', ['Яблоко', 'Картофель']),
+    lib.filterIn('favoriteFruit', ['Яблоко', 'Картофель', 'Банан']),
+    lib.filterIn('gender', 'Мужской')
 );
 console.log(result);
 

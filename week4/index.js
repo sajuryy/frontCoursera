@@ -16,11 +16,11 @@
  */
 
 function query(collection) {
-    const result = collection.slice();
     const args = [].slice.call(arguments);
 
     if (args.length === 1) {
-        return collection;
+        const result = collection.slice();
+        return result;
     }
 
     let select = [];
@@ -35,12 +35,14 @@ function query(collection) {
         }
     }
 
-    select = finSelect(select);
+    select = finSelect(select, collection);
+    filterIn = getObjFileds(filterIn);
     // console.log(select);
     // console.log(filterIn);
+    const filteredColection = filterCollection(collection, filterIn);
 
-    return args;
 
+    return filteredColection;
 }
 
 /**
@@ -64,12 +66,12 @@ function filterIn(property, values) {
     return keys;
 };
 
-function finSelect(arr) {
+const finSelect = (arr, collection) => {
     const arrResult = []
     if (arr.length === 1) {
         arrResult.push(arr[0]);
     }
-    const objSelect = {};
+    const objSelect = fieldsSelect(collection)
 
     for (let i = 0; i < arr.length; i++) {
 
@@ -83,12 +85,23 @@ function finSelect(arr) {
     }
 
     for (key in objSelect) {
-        if (objSelect[key] == arr.length) {
+        if (objSelect[key] === arr.length + 1) {
             arrResult.push(key);
         }
     }
     return arrResult;
 };
+
+const fieldsSelect = (collection) => {
+    const objFields = {};
+    for (let i = 0; i < collection.length; i++) {
+        for (key in collection[i]) {
+            objFields[key] = 1;
+        }
+    }
+    return objFields;
+}
+
 
 module.exports = {
     query: query,
@@ -96,5 +109,76 @@ module.exports = {
     filterIn: filterIn
 };
 
+const getObjFileds = (arr) => {
+    const objFields = {};
+    for (let i = 0; i < arr.length; i++) {
+        if (!objFields[arr[i][0]]) {
+            const arrTmp = [];
+            arrTmp.push(arr[i][1]);
+            objFields[arr[i][0]] = arrTmp;
+        } else {
+            objFields[arr[i][0]].push(arr[i][1]);
+        }
+    }
 
-// console.log(select('qqq', 'www', 'eee'));
+    for (key in objFields) {
+        if (objFields[key].length > 1) {
+
+            objFields[key] = filterFields(objFields[key]);
+        }
+
+    }
+    // console.log(objFields);
+    return objFields;
+};
+
+function filterFields(arr) {
+    const arrResult = []
+    const objSelect = {};
+
+    for (let i = 0; i < arr.length; i++) {
+        [].forEach.call(arr[i], (element) => {
+            if (!objSelect[element]) {
+                objSelect[element] = 1;
+            } else {
+                objSelect[element] += 1;
+            }
+        });
+    }
+
+    for (key in objSelect) {
+        if (objSelect[key] === arr.length) {
+            arrResult.push(key);
+        }
+    }
+    return arrResult;
+};
+
+function filterCollection(collection, params) {
+    let checkedCollection = [].slice.call(collection);
+    const checked = [];
+    checked.push(checkedCollection);
+    i = 0;
+    for (key in params) {
+        checked.push(checkOneParam(checked[i], key, params));
+        i++;
+    }
+    return checked[(checked.length - 1)];
+};
+
+
+function checkOneParam(collection, key, params) {
+    const checkedOneParam = [];
+    paramValues = params[key];
+    for (let i = 0; i < collection.length; i++) {
+        const toCheck = collection[i][key];
+        paramValues.forEach((value) => {
+
+            if (toCheck === value) {
+                checkedOneParam.push(collection[i]);
+            }
+
+        })
+    }
+    return checkedOneParam;
+}
