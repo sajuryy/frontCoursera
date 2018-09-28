@@ -1,14 +1,3 @@
-// Условия
-// После выполнения функции 'query' не должна измениться исходная коллекция.
-// Если в функцию 'query' передать только коллекцию, то вернётся её копия.
-// Операция 'select' должна игнорировать несуществующие в объекте поля.
-// Несколько операций 'select' должны отработать как одна с пересечёнными аргументами. Например, если мы выбираем поля a и b, а затем b и c, то в результате должно выбраться только поле b.
-// Несколько операций 'filterIn' должны отработать как одна с пересечёнными аргументами. Например, если фильтруем поле по значениям a и b, а затем по b и c, то в результате отфильтроваться должно только по значени b.
-// Операции должны выполняться в определённом порядке. В первую очередь происходит фильтрация, а затем выборка полей. Таким образом, можно фильтровать коллекцию даже по тем полям, которые не указаны в функции select.
-// Порядок элементов после выполнения операций должен сохраниться.
-// Гарантируется, что функция 'query' будет вызываться корректно. Дополнительную проверку аргументов делать не нужно.
-// Предполагается, что поля объектов имеют значения типа String или Number.
-
 /**
  * @param {Array} collection
  * @params {Function[]} – Функции для запроса
@@ -27,39 +16,78 @@ function query(collection) {
     let filterIn = [];
 
     for (let i = 1; i < args.length; i++) {
-        if (args[i][0] === 'select') {
-            select.push(args[i].slice(1));
-        }
         if (args[i][0] === 'filterIn') {
             filterIn.push(args[i].slice(1));
         }
+        if (args[i][0] === 'select') {
+            const argsChecked = checkArgsSelect(args[i].slice(1), collection);
+            select.push(argsChecked);
+        }
     }
 
+    filterIn = getObjFields(filterIn);
+    const filteredCollection = filterCollection(collection, filterIn);
+
     select = finSelect(select, collection);
-    filterIn = getObjFileds(filterIn);
-    // console.log(select);
-    // console.log(filterIn);
-    const filteredColection = filterCollection(collection, filterIn);
+    const formatedFilteredCollection = format(filteredCollection, select);
 
+    return formatedFilteredCollection;
 
-    return filteredColection;
 }
 
+// select должен выбирать только существующие поля,
+// должен соблюдаться приоритет операций (filterIn > select)
 /**
  * @params {String[]}
  */
 function select() {
     let keys = [].slice.call(arguments);
-    keys = ['select', ...keys];
-    return keys;
+    args = ['select', ...keys];
+    return args;
 }
 
+function checkArgsSelect(arr, collection) {
+
+    const obj = {};
+    collection.forEach((element) => {
+        for (key in element) {
+            obj[key] = true;
+        }
+    });
+    const objFields = Object.keys(obj);
+
+
+    Object.keys(collection);
+    const args = [].slice.call(arr);
+
+    const objTmp = {};
+    const arrTmp = [...args, ...objFields];
+
+    arrTmp.forEach((arg) => {
+        if (!objTmp[arg]) {
+            objTmp[arg] = 1;
+        } else {
+            objTmp[arg] += 1;
+        }
+    });
+
+    const argsSelect = [];
+
+    for (key in objTmp) {
+        if (objTmp[key] > 1) {
+            argsSelect.push(key);
+        }
+
+    }
+
+    return argsSelect;
+
+};
 /**
  * @param {String} property – Свойство для фильтрации
  * @param {Array} values – Массив разрешённых значений
  */
 
-// lib.filterIn('favoriteFruit', ['Яблоко', 'Картофель']
 function filterIn(property, values) {
     let keys = [].slice.call(arguments);
     keys = ['filterIn', ...keys];
@@ -67,28 +95,30 @@ function filterIn(property, values) {
 };
 
 const finSelect = (arr, collection) => {
-    const arrResult = []
+    let arrResult = []
     if (arr.length === 1) {
-        arrResult.push(arr[0]);
-    }
-    const objSelect = fieldsSelect(collection)
+        arrResult = arr[0];
+    } else {
+        const objSelect = fieldsSelect(collection)
 
-    for (let i = 0; i < arr.length; i++) {
+        for (let i = 0; i < arr.length; i++) {
 
-        arr[i].forEach((element) => {
-            if (!objSelect[element]) {
-                objSelect[element] = 1;
-            } else {
-                objSelect[element] += 1;
+            arr[i].forEach((element) => {
+                if (!objSelect[element]) {
+                    objSelect[element] = 1;
+                } else {
+                    objSelect[element] += 1;
+                }
+            });
+        };
+
+        for (key in objSelect) {
+            if (objSelect[key] === arr.length + 1) {
+                arrResult.push(key);
             }
-        });
+        };
     }
 
-    for (key in objSelect) {
-        if (objSelect[key] === arr.length + 1) {
-            arrResult.push(key);
-        }
-    }
     return arrResult;
 };
 
@@ -109,26 +139,28 @@ module.exports = {
     filterIn: filterIn
 };
 
-const getObjFileds = (arr) => {
+const getObjFields = (arr) => {
     const objFields = {};
-    for (let i = 0; i < arr.length; i++) {
-        if (!objFields[arr[i][0]]) {
-            const arrTmp = [];
-            arrTmp.push(arr[i][1]);
-            objFields[arr[i][0]] = arrTmp;
-        } else {
-            objFields[arr[i][0]].push(arr[i][1]);
+    if (arr.length === 1) {
+        objFields[arr[0][0]] = arr[0][1];
+    } else {
+        for (let i = 0; i < arr.length; i++) {
+            if (!objFields[arr[i][0]]) {
+                const arrTmp = [];
+                arrTmp.push(arr[i][1]);
+                objFields[arr[i][0]] = arrTmp;
+            } else {
+                objFields[arr[i][0]].push(arr[i][1]);
+            }
+        }
+        for (key in objFields) {
+            if (objFields[key].length > 1) {
+                objFields[key] = filterFields(objFields[key]);
+            }
+
         }
     }
 
-    for (key in objFields) {
-        if (objFields[key].length > 1) {
-
-            objFields[key] = filterFields(objFields[key]);
-        }
-
-    }
-    // console.log(objFields);
     return objFields;
 };
 
@@ -152,7 +184,9 @@ function filterFields(arr) {
         }
     }
     return arrResult;
+
 };
+
 
 function filterCollection(collection, params) {
     let checkedCollection = [].slice.call(collection);
@@ -181,4 +215,17 @@ function checkOneParam(collection, key, params) {
         })
     }
     return checkedOneParam;
-}
+};
+
+function format(arr, fields) {
+    const arrFormated = [];
+
+    for (let i = 0; i < arr.length; i++) {
+        const formated = {};
+        fields.forEach((field) => {
+            formated[field] = arr[i][field]
+        });
+        arrFormated.push(formated);
+    }
+    return arrFormated;
+};
